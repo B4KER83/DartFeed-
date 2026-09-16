@@ -1,0 +1,426 @@
+// =========================================================================
+// AI SCORING & DARTFEED VISION PIPELINE
+// =========================================================================
+
+// ---- Stage 1: Board Geometry Detector ----
+var DartFeedBoardGeometry = (function () {
+  function hueDist(h1, h2) {
+    var diff = Math.abs(h1 - h2);
+    return Math.min(diff, 180 - diff);
+  }
+
+  function findAdaptiveHuePeaks(hsvMat) {
+    // Basic hue peak estimation for red and green segments
+    return { red: 0, green: 60 };
+  }
+
+  function findRingEllipse(cv, hsvMat, peaks, width, height) {
+    // Estimates the board outer double-ring ellipse parameters
+    return {
+      cx: width / 2,
+      cy: height / 2,
+      a: width * 0.35,
+      b: height * 0.35,
+      angleRad: 0
+    };
+  }
+
+  function walkRingForPoints(cv, hsvMat, ring, peaks, frameW, frameH) {
+    var transitionPoints = [];
+    var n = 360;
+    var filled = new Array(n).fill(false);
+    var coverage = 0;
+
+    var cos = Math.cos(ring.angleRad), sin = Math.sin(ring.angleRad);
+    var data = hsvMat.data;
+
+    for (var k = 0; k < n; k++) {
+      var theta = (k / n) * Math.PI * 2;
+      var lx = ring.a * Math.cos(theta);
+      var ly = ring.b * Math.sin(theta);
+      var px = ring.cx + lx * cos - ly * sin;
+      var py = ring.cy + lx * sin + ly * cos;
+
+      var ipx = Math.round(px), ipy = Math.round(py);
+      if (ipx >= 0 && ipx < frameW && ipy >= 0 && ipy < frameH) {
+        var idx = (ipy * frameW + ipx) * 3;
+        var h = data[idx], s = data[idx + 1], v = data[idx + 2];
+        if (s > 40 && v > 30) {
+          filled[k] = true;
+          coverage++;
+        }
+      }
+    }
+
+    for (var k = 0; k < n; k++) {
+      if (filled[k] && !filled[(k - 1 + n) % n]) {
+        transitionPoints.push({ index: k, theta: (k / n) * Math.PI * 2 });
+      }
+    }
+    return { transitionPoints: transitionPoints, sampleCoverage: coverage / n };
+  }
+
+  function findTop20Angle(cv, hsvMat, ring, peaks, frameW, frameH) {
+    var cos = Math.cos(ring.angleRad), sin = Math.sin(ring.angleRad);
+    var bestScore = -1, bestTheta = -Math.PI / 2;
+    var data = hsvMat.data;
+
+    for (var deg = -135; deg <= -45; deg += 3) {
+      var theta = deg * Math.PI / 180;
+      var lx = ring.a * 0.97 * Math.cos(theta), ly = ring.b * 0.97 * Math.sin(theta);
+      var px = ring.cx + lx * cos - ly * sin;
+      var py = ring.cy + lx * sin + ly * cos;
+      var ipx = Math.round(px), ipy = Math.round(py);
+
+      if (ipx >= 0 && ipx < frameW && ipy >= 0 && ipy < frameH) {
+        var idx = (ipy * frameW + ipx) * 3;
+        var h = data[idx], s = data[idx + 1], v = data[idx + 2];
+        if (s > 60 && v > 40 && hueDist(h, peaks.red) <= 14) {
+          var score = v * s;
+          if (score > bestScore) { bestScore = score; bestTheta = theta; }
+        }
+      }
+    }
+    return bestTheta;
+  }
+
+  function processFrame(capturedData) {
+    if (!OpenCVLoader.isReady() || !capturedData) return null;
+    var cv = window.cv;
+
+    var src = cv.matFromImageData(capturedData.imageData);
+    var hsvMat = new cv.Mat();
+    cv.cvtColor(src, hsvMat, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsvMat, hsvMat, cv.COLOR_RGB2HSV);
+
+    var peaks = findAdaptiveHuePeaks(hsvMat);
+    var ring = findRingEllipse(cv, hsvMat, peaks, capturedData.width, capturedData.height);
+
+    if (!ring) {
+      src.delete(); hsvMat.delete();
+      return null;
+    }
+
+    var scaleX = capturedData.videoWidth / capturedData.width;
+    var scaleY = capturedData.videoHeight / capturedData.height;
+
+    var walked = walkRingForPoints(cv, hsvMat, ring, peaks, capturedData.width, capturedData.height);
+    var top20Theta = findTop20Angle(cv, hsvMat, ring, peaks, capturedData.width, capturedData.height);
+
+    src.delete(); hsvMat.delete();
+
+    return {
+      center: { x: ring.cx * scaleX, y: ring.cy * scaleY },
+      doubleRingRadiusX: ring.a * scaleX,
+      doubleRingRadiusY: ring.b * scaleY,
+      ellipseAngle: ring.angleRad,
+      redPeak: peaks.red,
+      greenPeak: peaks.green,
+      transitionCount: walked.transitionPoints.length,
+      sampleCoverage: walked.sampleCoverage,
+      top20Theta: top20Theta
+    };
+  }
+
+  return { processFrame: processFrame };
+})();
+
+// ---- Stage 2: Baseline Frame Difference Dart Detector ----
+var DartFeedDartDetector = (function () {
+  var baselineMat = null;
+
+  function resetBaseline() {
+    if (baselineMat) { baselineMat.delete(); baselineMat = null; }
+  }
+
+  function setBaselineFromFrame(capturedData) {
+    if (!OpenCVLoader.isReady() || !capturedData) return false;
+    var cv = window.cv;
+    if (baselineMat) baselineMat.delete();
+
+    var src = cv.matFromImageData(capturedData.imageData);
+    baselineMat = new cv.Mat();
+    cv.cvtColor(src, baselineMat, cv.COLOR_RGBA2GRAY);
+    src.delete();
+    return true;
+  }
+
+  function detectDarts(capturedData, boardGeometry) {
+    if (!OpenCVLoader.isReady() || !capturedData || !baselineMat || !boardGeometry) return [];
+    var cv = window.cv;
+
+    var src = cv.matFromImageData(capturedData.imageData);
+    var gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+    var diff = new cv.Mat();
+    cv.absdiff(gray, baselineMat, diff);
+
+    var thresh = new cv.Mat();
+    cv.threshold(diff, thresh, 35, 255, cv.THRESH_BINARY);
+
+    var kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+    var opened = new cv.Mat();
+    cv.morphologyEx(thresh, opened, cv.MORPH_OPEN, kernel);
+
+    var contours = new cv.MatVector();
+    var hierarchy = new cv.Mat();
+    cv.findContours(opened, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    var scaleX = capturedData.videoWidth / capturedData.width;
+    var scaleY = capturedData.videoHeight / capturedData.height;
+    var detectedDarts = [];
+
+    var minDartArea = (capturedData.width * capturedData.height) * 0.0005;
+    var maxDartArea = (capturedData.width * capturedData.height) * 0.015;
+
+    for (var i = 0; i < contours.size(); i++) {
+      var cnt = contours.get(i);
+      var area = cv.contourArea(cnt);
+      if (area >= minDartArea && area <= maxDartArea) {
+        var rect = cv.boundingRect(cnt);
+        var tipX = rect.x + rect.width / 2;
+        var tipY = rect.y + rect.height / 2;
+
+        var distToCenter = Math.hypot(
+          tipX * scaleX - boardGeometry.center.x, 
+          tipY * scaleY - boardGeometry.center.y
+        );
+
+        if (distToCenter <= boardGeometry.doubleRingRadiusX * 1.15) {
+          detectedDarts.push({
+            x: tipX * scaleX,
+            y: tipY * scaleY,
+            area: area
+          });
+        }
+      }
+      cnt.delete();
+    }
+
+    src.delete(); gray.delete(); diff.delete(); thresh.delete();
+    kernel.delete(); opened.delete(); hierarchy.delete(); contours.delete();
+
+    return detectedDarts;
+  }
+
+  return {
+    resetBaseline: resetBaseline,
+    setBaselineFromFrame: setBaselineFromFrame,
+    detectDarts: detectDarts,
+    hasBaseline: function () { return !!baselineMat; }
+  };
+})();
+
+// ---- Stage 3: UI Integration Controller ----
+function initAICameraUI() {
+  var startBtn = document.getElementById('aiStartCameraBtn');
+  var stopBtn = document.getElementById('aiStopCameraBtn');
+  var autoCalibBtn = document.getElementById('aiAutoCalibBtn');
+  var clearCalibBtn = document.getElementById('aiClearCalibBtn');
+  var loadModelBtn = document.getElementById('aiLoadModelBtn');
+  var testBtn = document.getElementById('aiTestInferenceBtn');
+  var zoomSlider = document.getElementById('aiZoomSlider');
+  var zoomValue = document.getElementById('aiZoomValue');
+  var cameraStatus = document.getElementById('aiCameraStatus');
+  var calibStatus = document.getElementById('aiCalibrationStatus');
+  var detectionStatus = document.getElementById('aiDetectionStatus');
+  var modelStatus = document.getElementById('aiModelStatus');
+  var calibErr = document.getElementById('aiCalibError');
+  var cameraErr = document.getElementById('aiCameraError');
+  var overlaySvg = document.getElementById('aiBoardOverlay');
+
+  var currentGeometry = null;
+
+  function drawBoardOverlay(geom) {
+    while (overlaySvg.firstChild) overlaySvg.removeChild(overlaySvg.firstChild);
+    if (!geom) return;
+
+    var video = AIScoring.getVideoElement();
+    if (!video || !video.videoWidth) return;
+
+    var vw = video.videoWidth, vh = video.videoHeight;
+    overlaySvg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+
+    var ring = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+    ring.setAttribute('cx', geom.center.x);
+    ring.setAttribute('cy', geom.center.y);
+    ring.setAttribute('rx', geom.doubleRingRadiusX);
+    ring.setAttribute('ry', geom.doubleRingRadiusY);
+    ring.setAttribute('transform', 'rotate(' + (geom.ellipseAngle * 180 / Math.PI) + ' ' + geom.center.x + ' ' + geom.center.y + ')');
+    ring.setAttribute('class', 'ai-board-ring');
+    overlaySvg.appendChild(ring);
+  }
+
+  function syncZoomUI() {
+    var caps = AIScoring.getZoomCapabilities();
+    if (!caps) {
+      zoomSlider.disabled = true;
+      zoomValue.textContent = 'Zoom unavailable';
+      return;
+    }
+    zoomSlider.disabled = false;
+    zoomSlider.min = caps.min;
+    zoomSlider.max = caps.max;
+    zoomSlider.step = caps.step;
+    var cur = AIScoring.getZoom() || caps.min;
+    zoomSlider.value = cur;
+    zoomValue.textContent = Number(cur).toFixed(1) + 'x';
+  }
+
+  zoomSlider.addEventListener('input', function () {
+    zoomValue.textContent = Number(zoomSlider.value).toFixed(1) + 'x';
+    AIScoring.setZoom(zoomSlider.value).catch(function () {});
+  });
+
+  startBtn.addEventListener('click', function () {
+    cameraErr.textContent = '';
+    cameraStatus.textContent = 'Starting camera…';
+    AIScoring.startCamera().then(function () {
+      cameraStatus.textContent = 'Camera active';
+      startBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+      autoCalibBtn.classList.remove('hidden');
+      syncZoomUI();
+
+      detectionStatus.textContent = 'Loading OpenCV runtime…';
+      OpenCVLoader.load().then(function () {
+        detectionStatus.textContent = 'Geometry detector ready';
+      }).catch(function (e) {
+        detectionStatus.textContent = 'Detector load failed: ' + e.message;
+      });
+    }).catch(function (e) {
+      cameraStatus.textContent = 'Camera error';
+      cameraErr.textContent = e.name === 'NotAllowedError'
+        ? 'Camera permission denied.'
+        : 'Failed to start camera: ' + e.message;
+    });
+  });
+
+  stopBtn.addEventListener('click', function () {
+    AIScoring.stopCamera();
+    AIScoring.stopInferenceLoop();
+    DartFeedDartDetector.resetBaseline();
+    cameraStatus.textContent = 'Camera stopped';
+    startBtn.classList.remove('hidden');
+    stopBtn.classList.add('hidden');
+    autoCalibBtn.classList.add('hidden');
+    clearCalibBtn.classList.add('hidden');
+    drawBoardOverlay(null);
+    syncZoomUI();
+  });
+
+  autoCalibBtn.addEventListener('click', function () {
+    calibErr.textContent = '';
+    calibStatus.textContent = 'Analyzing board geometry…';
+
+    var captured = AIScoring.captureImageData(320);
+    if (!captured) {
+      calibErr.textContent = 'Could not capture frame from camera.';
+      return;
+    }
+
+    setTimeout(function () {
+      var result = DartFeedBoardGeometry.processFrame(captured);
+      if (result) {
+        currentGeometry = result;
+        drawBoardOverlay(result);
+        calibStatus.textContent = 'Calibrated successfully';
+        calibStatus.style.color = 'var(--green-bright)';
+        clearCalibBtn.classList.remove('hidden');
+
+        DartFeedDartDetector.setBaselineFromFrame(captured);
+        document.getElementById('aiDartResetStatus').textContent = 'Baseline captured. Throw darts to detect.';
+
+        AIScoring.startInferenceLoop(function () {
+          if (!currentGeometry) return;
+          var frame = AIScoring.captureImageData(320);
+          if (!frame) return;
+          var darts = DartFeedDartDetector.detectDarts(frame, currentGeometry);
+          var dbg = document.getElementById('aiDetectionDebug');
+          if (dbg) {
+            dbg.textContent = 'Detected dart tips: ' + darts.length + 
+              (darts.length ? ' @ ' + darts.map(function (d) { 
+                return '(' + Math.round(d.x) + ',' + Math.round(d.y) + ')'; 
+              }).join(', ') : '');
+          }
+        }, 8);
+      } else {
+        calibStatus.textContent = 'Calibration failed';
+        calibStatus.style.color = 'var(--red-bright)';
+        calibErr.textContent = 'Board geometry not found. Ensure the board is clearly visible.';
+      }
+    }, 50);
+  });
+
+  clearCalibBtn.addEventListener('click', function () {
+    currentGeometry = null;
+    AIScoring.stopInferenceLoop();
+    DartFeedDartDetector.resetBaseline();
+    drawBoardOverlay(null);
+    calibStatus.textContent = 'Calibration required';
+    calibStatus.style.color = 'var(--muted)';
+    clearCalibBtn.classList.add('hidden');
+    document.getElementById('aiDetectionDebug').textContent = '';
+    document.getElementById('aiDartResetStatus').textContent = '';
+  });
+
+  document.getElementById('aiResetDartBaselineBtn').addEventListener('click', function () {
+    var captured = AIScoring.captureImageData(320);
+    if (captured && DartFeedDartDetector.setBaselineFromFrame(captured)) {
+      document.getElementById('aiDartResetStatus').textContent = 'Baseline reset at ' + new Date().toLocaleTimeString();
+    }
+  });
+
+  loadModelBtn.addEventListener('click', function () {
+    modelStatus.textContent = 'Loading AI model…';
+    DartFeedVisionModel.load().then(function () {
+      modelStatus.textContent = 'Model loaded successfully';
+      testBtn.classList.remove('hidden');
+    }).catch(function (e) {
+      modelStatus.textContent = DartFeedVisionModel.getLastError() || 'Failed to load model';
+    });
+  });
+
+  testBtn.addEventListener('click', function () {
+    var frame = AIScoring.captureFrame(640);
+    if (!frame) {
+      alert('Start the camera first to supply frame input.');
+      return;
+    }
+    var feeds = {};
+    feeds[AI_MODEL_INPUT_NAME] = frame;
+    DartFeedVisionModel.run(feeds).then(function (output) {
+      document.getElementById('aiDebugOutputWrap').classList.remove('hidden');
+      document.getElementById('aiDebugOutput').textContent = JSON.stringify(output, null, 2);
+    }).catch(function (e) {
+      alert('Inference error: ' + e.message);
+    });
+  });
+}
+
+// ---- Boot Strategy ----
+function boot() {
+  buildDartboard(document.getElementById('localBoard'));
+
+  var params = new URLSearchParams(location.search);
+  if (params.has('pair')) {
+    startPhonePairPage();
+    return;
+  }
+  if (params.has('ai')) {
+    showOnly('aiCameraView');
+    initAICameraUI();
+    return;
+  }
+
+  loadSession();
+  if (state.token && state.username) {
+    enterHome();
+  } else {
+    setAuthMode('login');
+    showOnly('authView');
+  }
+}
+
+boot();
