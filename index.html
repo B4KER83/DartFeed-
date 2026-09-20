@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leicestershire Foxes U12</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --card-border:#232a35; --text:#e6edf3; --muted:#8b98a5;
+    --green:#2ea043; --green-bright:#3fb950; --red:#f85149; --amber:#d29922; --blue:#58a6ff;
+    --nav-h:64px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  body{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));}
+  a{color:inherit;text-decoration:none;}
+  header.top{position:sticky;top:0;z-index:10;background:#000;border-bottom:1px solid var(--card-border);
+    padding:14px 16px calc(14px + env(safe-area-inset-top)) 16px;padding-top:calc(14px + env(safe-area-inset-top));}
+  header.top h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.2px;}
+  header.top .sub{margin-top:2px;font-size:12px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.live{background:rgba(46,160,67,.18);color:var(--green-bright);}
+  .badge.stale{background:rgba(210,153,34,.18);color:var(--amber);}
+  .badge.error{background:rgba(248,81,73,.18);color:var(--red);}
+  main{max-width:640px;margin:0 auto;padding:14px 12px 24px;}
+  h2.section{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    margin:22px 4px 10px;}
+  h2.section:first-child{margin-top:6px;}
+  .card{background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+  .empty{color:var(--muted);font-size:14px;padding:18px 6px;text-align:center;}
+  .banner{border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;line-height:1.45;}
+  .banner.warn{background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.35);color:#e3b341;}
+  .banner.err{background:rgba(248,81,73,.12);border:1px solid rgba(248,81,73,.35);color:#ff7b72;}
+  .match{display:flex;align-items:center;gap:10px;padding:9px 2px;}
+  .match + .match{border-top:1px solid var(--card-border);}
+  .match .date{width:44px;flex:0 0 44px;font-size:11px;color:var(--muted);line-height:1.2;}
+  .match .teams{flex:1;min-width:0;font-size:14px;}
+  .match .teams .t{display:flex;justify-content:space-between;gap:6px;align-items:center;}
+  .match .teams .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .match .teams .name.fav{color:var(--green-bright);font-weight:700;}
+  .match .score{font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto;font-size:14px;}
+  .match .vs{color:var(--muted);font-size:12px;flex:0 0 auto;}
+  .match .meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .status-tag{font-size:10px;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:6px;margin-left:6px;}
+  .status-tag.postponed,.status-tag.cancelled{background:rgba(248,81,73,.18);color:var(--red);}
+  .status-tag.rearranged{background:rgba(210,153,34,.18);color:var(--amber);}
+  .div-card{display:flex;justify-content:space-between;align-items:center;padding:14px;}
+  .div-card .name{font-size:15px;font-weight:600;}
+  .div-card .chev{color:var(--muted);}
+  table.league{width:100%;border-collapse:collapse;font-size:13px;}
+  table.league th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:6px 4px;border-bottom:1px solid var(--card-border);}
+  table.league td{padding:7px 4px;border-bottom:1px solid var(--card-border);white-space:nowrap;}
+  table.league td.team{white-space:normal;max-width:150px;overflow:hidden;text-overflow:ellipsis;}
+  table.league tr.fav td{color:var(--green-bright);font-weight:700;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .star-btn{background:none;border:none;font-size:20px;cursor:pointer;color:var(--amber);padding:4px 6px;line-height:1;}
+  .star-btn.off{color:var(--muted);}
+  .team-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .team-hdr h1{font-size:19px;margin:0 0 4px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;}
+  .stat-grid .stat{background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:8px 4px;text-align:center;}
+  .stat-grid .stat .v{font-size:16px;font-weight:700;}
+  .stat-grid .stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
+  input.search{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--card-border);
+    background:var(--card);color:var(--text);font-size:15px;margin-bottom:10px;}
+  input.search:focus{outline:1px solid var(--green);}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;background:var(--card);border:1px solid var(--card-border);border-radius:10px;padding:3px;}
+  .tabs button{flex:1;padding:9px 4px;border:none;background:none;color:var(--muted);font-size:13px;font-weight:600;border-radius:8px;cursor:pointer;}
+  .tabs button.active{background:var(--green);color:#fff;}
+  select.filter{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--card-border);
+    background:var(--card);color:var(--text);font-size:14px;margin-bottom:10px;}
+  nav.bottom{position:fixed;bottom:0;left:0;right:0;z-index:20;background:#000;border-top:1px solid var(--card-border);
+    display:flex;padding-bottom:env(safe-area-inset-bottom);}
+  nav.bottom a{flex:1;text-align:center;padding:9px 2px 7px;font-size:10px;color:var(--muted);}
+  nav.bottom a .ic{display:block;font-size:19px;margin-bottom:1px;}
+  nav.bottom a.active{color:var(--green-bright);}
+  .btn{display:inline-block;background:var(--green);color:#fff;border:none;border-radius:8px;
+    padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn.ghost{background:none;border:1px solid var(--card-border);color:var(--text);}
+  .fav-card{padding:14px;}
+  .fav-card .row{font-size:13px;color:var(--muted);margin-top:6px;}
+  .fav-card .row b{color:var(--text);font-weight:600;}
+  .center-msg{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px;line-height:1.6;}
+  .center-msg .big{font-size:34px;margin-bottom:10px;}
+  code.small{background:#1c2128;padding:2px 5px;border-radius:5px;font-size:12px;}
+  .spinner{width:16px;height:16px;border:2px solid var(--card-border);border-top-color:var(--green-bright);
+    border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:-3px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (min-width:640px){
+    nav.bottom{max-width:640px;left:50%;transform:translateX(-50%);border-left:1px solid var(--card-border);border-right:1px solid var(--card-border);border-radius:14px 14px 0 0;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Leicestershire Foxes Sunday League</h1>
+  <div class="sub">
+    <span>U12</span>
+    <span id="seasonLabel"></span>
+    <span id="statusBadge" class="badge stale">Loading…</span>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<nav class="bottom" id="bottomNav">
+  <a href="#/" data-route="/"><span class="ic">🏠</span>Home</a>
+  <a href="#/fixtures" data-route="/fixtures"><span class="ic">📅</span>Fixtures</a>
+  <a href="#/results" data-route="/results"><span class="ic">⚽</span>Results</a>
+  <a href="#/divisions" data-route="/divisions"><span class="ic">🏆</span>Divisions</a>
+  <a href="#/favourites" data-route="/favourites"><span class="ic">⭐</span>Favourites</a>
+</nav>
+
+<script>
+(function(){
+"use strict";
+
+// ---------------------------------------------------------------------
+// CONFIG
+// ---------------------------------------------------------------------
+var CONFIG = {
+  API_BASE: "https://faapi.jwhsolutions.co.uk",
+  LEAGUE_ID: "3326454",
+  SEASON_ID: "503728397",
+  AGE_GROUP_FILTER: "U12",
+  DEFAULT_FAVOURITE: "Mountsorrel Juniors U12 Shadowcats",
+  CACHE_KEY: "foxes_u12_cache_v1",
+  FAV_KEY: "foxes_u12_favourites_v1",
+  REFRESH_MS: 20 * 60 * 1000, // 20 min background refresh while the tab is open
+  FETCH_TIMEOUT_MS: 9000,
+  RETRIES: 2
+};
+
+// ---------------------------------------------------------------------
+// Small helpers (ported from the server build's utils.js / mapping.js)
+// ---------------------------------------------------------------------
+var ENTITIES = {"&amp;":"&","&lt;":"<","&gt;":">","&quot;":'"',"&#39;":"'","&apos;":"'","&nbsp;":" "};
+function decodeEntities(s){
+  if (typeof s !== "string") return s;
+  return s.replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&apos;|&nbsp;/g, function(m){ return ENTITIES[m] || m; });
+}
+function cleanTeamName(name){
+  if (!name) return name;
+  return decodeEntities(String(name)).trim();
+}
+function parseFixtureDateTime(raw){
+  if (!raw || typeof raw !== "string") return null;
+  var m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  var dd = m[1], mm = m[2], yy = m[3], hh = m[4], min = m[5];
+  var year = parseInt(yy, 10);
+  if (year < 100) year += 2000;
+  var day = parseInt(dd, 10), month = parseInt(mm, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  var hour = hh !== undefined ? parseInt(hh, 10) : 0;
+  var minute = min !== undefined ? parseInt(min, 10) : 0;
+  var date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  if (isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+function firstDefined(obj, keys){
+  for (var i=0;i<keys.length;i++){
+    var k = keys[i];
+    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+  }
+  return undefined;
+}
+function numOrNull(v){
+  if (v === undefined || v === null || v === "") return null;
+  var n = Number(v);
+  return isNaN(n) ? null : n;
+}
+function parseScoreString(s){
+  if (typeof s !== "string") return null;
+  var m = s.match(/(\d+)\s*[-:–]\s*(\d+)/);
+  if (!m) return null;
+  return { home: parseInt(m[1],10), away: parseInt(m[2],10) };
+}
+function inferStatus(raw){
+  var statusField = firstDefined(raw, ["status","matchStatus","fixtureStatus","result"]);
+  var text = String(statusField || "").toLowerCase();
+  if (text.indexOf("postpon") !== -1) return "postponed";
+  if (text.indexOf("cancel") !== -1) return "cancelled";
+  if (text.indexOf("rearrang") !== -1 || text.indexOf("re-arrang") !== -1) return "rearranged";
+  if (text.indexOf("complet") !== -1 || text.indexOf("played") !== -1 || text.indexOf("full time") !== -1) return "completed";
+  return null;
+}
+function mapFixture(raw, divisionName){
+  var rawDateTime = firstDefined(raw, ["fixtureDateTime","matchDate","date","kickOff"]);
+  return {
+    home: cleanTeamName(firstDefined(raw, ["homeTeam","home","homeTeamName"])),
+    away: cleanTeamName(firstDefined(raw, ["awayTeam","away","awayTeamName"])),
+    rawDateTime: rawDateTime || null,
+    isoDateTime: parseFixtureDateTime(rawDateTime),
+    location: firstDefined(raw, ["location","venue","ground"]) || null,
+    competition: firstDefined(raw, ["competition","division","divisionName"]) || divisionName || null,
+    status: inferStatus(raw) || "scheduled",
+    homeScore: null, awayScore: null, hasScore: false
+  };
+}
+function mapResult(raw, divisionName){
+  var rawDateTime = firstDefined(raw, ["fixtureDateTime","matchDate","date","playedOn"]);
+  var scoreStr = firstDefined(raw, ["score","result","scoreLine"]);
+  var parsedScore = parseScoreString(scoreStr);
+  var homeScoreRaw = firstDefined(raw, ["homeScore","homeGoals","homeTeamScore","fthg"]);
+  var awayScoreRaw = firstDefined(raw, ["awayScore","awayGoals","awayTeamScore","ftag"]);
+  var homeScore = homeScoreRaw !== undefined ? Number(homeScoreRaw) : (parsedScore ? parsedScore.home : null);
+  var awayScore = awayScoreRaw !== undefined ? Number(awayScoreRaw) : (parsedScore ? parsedScore.away : null);
+  return {
+    home: cleanTeamName(firstDefined(raw, ["homeTeam","home","homeTeamName"])),
+    away: cleanTeamName(firstDefined(raw, ["awayTeam","away","awayTeamName"])),
+    rawDateTime: rawDateTime || null,
+    isoDateTime: parseFixtureDateTime(rawDateTime),
+    location: firstDefined(raw, ["location","venue","ground"]) || null,
+    competition: firstDefined(raw, ["competition","division","divisionName"]) || divisionName || null,
+    status: inferStatus(raw) || "completed",
+    homeScore: (homeScore === null || isNaN(homeScore)) ? null : homeScore,
+    awayScore: (awayScore === null || isNaN(awayScore)) ? null : awayScore,
+    hasScore: !(homeScore === null || isNaN(homeScore) || awayScore === null || isNaN(awayScore))
+  };
+}
+function mapTableRow(raw){
+  return {
+    position: numOrNull(firstDefined(raw, ["position","rank","pos"])),
+    teamName: cleanTeamName(firstDefined(raw, ["teamName","team","name"])),
+    played: numOrNull(firstDefined(raw, ["played","p","pld"])),
+    won: numOrNull(firstDefined(raw, ["won","w","wins"])),
+    drawn: numOrNull(firstDefined(raw, ["drawn","d","draws"])),
+    lost: numOrNull(firstDefined(raw, ["lost","l","losses"])),
+    goalsFor: numOrNull(firstDefined(raw, ["goalsFor","gf","for"])),
+    goalsAgainst: numOrNull(firstDefined(raw, ["goalsAgainst","ga","against"])),
+    goalDifference: numOrNull(firstDefined(raw, ["goalDifference","gd","goalDiff"])),
+    points: numOrNull(firstDefined(raw, ["points","pts"]))
+  };
+}
+
+// Merge a division's Fixtures list (whole-season, no scores) with its
+// Results list (completed matches, with scores) into one match list.
+// A fixture is matched to a result by team pair; if no fixtures data
+// exists at all (e.g. Fixtures failed but Results worked), results are
+// still shown standalone. Never invents a match that neither endpoint
+// returned.
+function mergeDivisionMatches(fixturesRaw, resultsRaw, divisionName){
+  var fixtures = (fixturesRaw || []).map(function(r){ return mapFixture(r, divisionName); });
+  var results = (resultsRaw || []).map(function(r){ return mapResult(r, divisionName); });
+  var resultsByPair = {};
+  results.forEach(function(r, idx){
+    var key = r.home + "|" + r.away;
+    (resultsByPair[key] = resultsByPair[key] || []).push(idx);
+  });
+  var used = {};
+  var merged = fixtures.map(function(f){
+    var key = f.home + "|" + f.away;
+    var candidates = resultsByPair[key] || [];
+    for (var i=0;i<candidates.length;i++){
+      var idx = candidates[i];
+      if (used[idx]) continue;
+      used[idx] = true;
+      var r = results[idx];
+      var out = {};
+      for (var k in f) out[k] = f[k];
+      for (var k2 in r) out[k2] = r[k2];
+      return out;
+    }
+    return f;
+  });
+  results.forEach(function(r, idx){
+    if (!used[idx]) merged.push(r);
+  });
+  return merged;
+}
+
+function computeTableFromMatches(matches, teamNames){
+  var stats = {};
+  (teamNames || []).forEach(function(name){
+    stats[name] = { teamName: name, played:0, won:0, drawn:0, lost:0, goalsFor:0, goalsAgainst:0, goalDifference:0, points:0 };
+  });
+  function ensure(name){
+    if (!stats[name]) stats[name] = { teamName: name, played:0, won:0, drawn:0, lost:0, goalsFor:0, goalsAgainst:0, goalDifference:0, points:0 };
+    return stats[name];
+  }
+  matches.forEach(function(m){
+    if (!m.hasScore || m.status === "postponed" || m.status === "cancelled") return;
+    var h = ensure(m.home), a = ensure(m.away);
+    h.played++; a.played++;
+    h.goalsFor += m.homeScore; h.goalsAgainst += m.awayScore;
+    a.goalsFor += m.awayScore; a.goalsAgainst += m.homeScore;
+    if (m.homeScore > m.awayScore){ h.won++; h.points+=3; a.lost++; }
+    else if (m.homeScore < m.awayScore){ a.won++; a.points+=3; h.lost++; }
+    else { h.drawn++; a.drawn++; h.points++; a.points++; }
+  });
+  var rows = Object.keys(stats).map(function(k){
+    var s = stats[k];
+    s.goalDifference = s.goalsFor - s.goalsAgainst;
+    return s;
+  });
+  rows.sort(function(a,b){
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+    return a.teamName.localeCompare(b.teamName);
+  });
+  rows.forEach(function(r, i){ r.position = i + 1; });
+  return rows;
+}
+
+// ---------------------------------------------------------------------
+// fulltimeApi — the only code that talks to the external API.
+// Never throws on an ordinary HTTP failure; returns {ok, data|error}.
+// ---------------------------------------------------------------------
+var fulltimeApi = (function(){
+  function sleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
+
+  function fetchWithRetry(url, retries){
+    if (retries === undefined) retries = CONFIG.RETRIES;
+    var attempt = 0;
+    function tryOnce(){
+      var controller = ("AbortController" in window) ? new AbortController() : null;
+      var timer = null;
+      if (controller) timer = setTimeout(function(){ controller.abort(); }, CONFIG.FETCH_TIMEOUT_MS);
+      var opts = { headers: { accept: "application/json" } };
+      if (controller) opts.signal = controller.signal;
+      return fetch(url, opts).then(function(res){
+        if (timer) clearTimeout(timer);
+        if (res.ok) {
+          return res.json().then(function(data){ return { ok:true, data:data, status:res.status }; });
+        }
+        if (res.status < 500) {
+          return res.json().catch(function(){ return null; }).then(function(body){
+            var msg = (body && body.error && body.error.message) || (body && body.title) || ("HTTP " + res.status);
+            return { ok:false, status:res.status, error: msg, terminal:true };
+          });
+        }
+        return Promise.reject(new Error("HTTP " + res.status));
+      }).catch(function(err){
+        if (timer) clearTimeout(timer);
+        var msg = (err && err.message) || String(err);
+        if (attempt < retries) {
+          attempt++;
+          var backoff = 700 * Math.pow(2, attempt) + Math.floor(Math.random()*250);
+          return sleep(backoff).then(tryOnce);
+        }
+        return { ok:false, status:null, error: msg };
+      });
+    }
+    return tryOnce();
+  }
+
+  var base = CONFIG.API_BASE.replace(/\/$/, "");
+  return {
+    searchDivisions: function(leagueId){
+      return fetchWithRetry(base + "/api/Search/divisions/" + encodeURIComponent(leagueId));
+    },
+    getFixtures: function(divisionId, season){
+      return fetchWithRetry(base + "/api/Fixtures/" + encodeURIComponent(divisionId) + "/season/" + encodeURIComponent(season));
+    },
+    getResults: function(divisionId, season){
+      return fetchWithRetry(base + "/api/Results/" + encodeURIComponent(divisionId) + "/season/" + encodeURIComponent(season));
+    },
+    getLeagueTable: function(divisionId, season){
+      return fetchWithRetry(base + "/api/League/" + encodeURIComponent(divisionId) + "/season/" + encodeURIComponent(season));
+    }
+  };
+})();
+
+// ---------------------------------------------------------------------
+// Local cache (localStorage) — this IS the "database". Stale-while-
+// revalidate: render whatever's cached immediately, refresh in the
+// background, never blank the screen because of a failed fetch.
+// ---------------------------------------------------------------------
+var Cache = {
+  load: function(){
+    try {
+      var raw = localStorage.getItem(CONFIG.CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e){ return null; }
+  },
+  save: function(data){
+    try { localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(data)); } catch(e){ /* storage full/unavailable — ignore */ }
+  }
+};
+
+var state = {
+  cache: Cache.load(),   // { updatedAt, seasonLabel, divisions:[{externalId,name}], perDivision:{}, lastError }
+  favourites: loadFavourites(),
+  loading: false,
+  fetchBlocked: false,   // set true if the very first attempt fails with no cache — likely CORS/network
+  route: parseHash()
+};
+
+function loadFavourites(){
+  try {
+    var raw = localStorage.getItem(CONFIG.FAV_KEY);
+    if (raw === null) return [CONFIG.DEFAULT_FAVOURITE];
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch(e){ return [CONFIG.DEFAULT_FAVOURITE]; }
+}
+function saveFavourites(){
+  try { localStorage.setItem(CONFIG.FAV_KEY, JSON.stringify(state.favourites)); } catch(e){}
+}
+function isFavourite(name){ return state.favourites.indexOf(name) !== -1; }
+function toggleFavourite(name){
+  var i = state.favourites.indexOf(name);
+  if (i === -1) state.favourites.push(name); else state.favourites.splice(i,1);
+  saveFavourites();
+  render();
+}
+
+// ---------------------------------------------------------------------
+// Data refresh
+// ---------------------------------------------------------------------
+function refreshData(){
+  if (state.loading) return Promise.resolve();
+  state.loading = true;
+  render();
+
+  return fulltimeApi.searchDivisions(CONFIG.LEAGUE_ID).then(function(divResult){
+    if (!divResult.ok) {
+      state.loading = false;
+      if (!state.cache) state.fetchBlocked = true;
+      if (state.cache) {
+        state.cache.lastError = "Couldn't reach the league/division list (" + (divResult.error || "unknown error") + ").";
+        Cache.save(state.cache);
+      }
+      render();
+      return;
+    }
+    state.fetchBlocked = false;
+    var allDivisions = (divResult.data || []).map(function(d){
+      return { externalId: String(firstDefined(d, ["id","divisionId","externalId"])), name: cleanTeamName(firstDefined(d, ["name","divisionName","fullName"])) };
+    }).filter(function(d){ return d.externalId && d.name; });
+
+    var filterUpper = CONFIG.AGE_GROUP_FILTER.toUpperCase();
+    var divisions = allDivisions.filter(function(d){ return d.name.toUpperCase().indexOf(filterUpper) !== -1; });
+    if (divisions.length === 0) divisions = allDivisions; // fallback: filter found nothing, show what the league actually has rather than an empty site
+
+    var perDivision = (state.cache && state.cache.perDivision) || {};
+    var years = [];
+
+    var jobs = divisions.map(function(div){
+      return Promise.all([
+        fulltimeApi.getFixtures(div.externalId, CONFIG.SEASON_ID),
+        fulltimeApi.getResults(div.externalId, CONFIG.SEASON_ID),
+        fulltimeApi.getLeagueTable(div.externalId, CONFIG.SEASON_ID)
+      ]).then(function(res){
+        var fx = res[0], rs = res[1], tb = res[2];
+        var prev = perDivision[div.externalId] || {};
+        var entry = {
+          name: div.name,
+          fixturesRaw: fx.ok ? fx.data : (prev.fixturesRaw || []),
+          resultsRaw: rs.ok ? rs.data : (prev.resultsRaw || []),
+          tableRaw: tb.ok ? tb.data : (prev.tableRaw || null),
+          errors: {
+            fixtures: fx.ok ? null : (fx.error || "unavailable"),
+            results: rs.ok ? null : (rs.error || "unavailable"),
+            table: tb.ok ? null : (tb.error || "unavailable")
+          },
+          lastOk: { fixtures: fx.ok, results: rs.ok, table: tb.ok }
+        };
+        perDivision[div.externalId] = entry;
+
+        (entry.fixturesRaw || []).forEach(function(r){
+          var dt = firstDefined(r, ["fixtureDateTime","matchDate","date","kickOff"]);
+          var iso = parseFixtureDateTime(dt);
+          if (iso) years.push(iso.slice(0,4));
+        });
+      });
+    });
+
+    return Promise.all(jobs).then(function(){
+      var anyOk = divisions.some(function(d){
+        var e = perDivision[d.externalId];
+        return e && (e.lastOk.fixtures || e.lastOk.results || e.lastOk.table);
+      });
+      var seasonLabel = years.length ? (Math.min.apply(null, years) === Math.max.apply(null, years) ? years[0] : (Math.min.apply(null, years) + "–" + Math.max.apply(null, years))) : (state.cache ? state.cache.seasonLabel : null);
+
+      state.cache = {
+        updatedAt: new Date().toISOString(),
+        seasonLabel: seasonLabel,
+        divisions: divisions,
+        perDivision: perDivision,
+        lastError: anyOk ? null : "The Full-Time data service didn't respond for any division this time."
+      };
+      Cache.save(state.cache);
+      state.loading = false;
+      render();
+    });
+  }).catch(function(err){
+    state.loading = false;
+    if (!state.cache) state.fetchBlocked = true;
+    render();
+  });
+}
+
+// ---------------------------------------------------------------------
+// Derived data helpers
+// ---------------------------------------------------------------------
+function getDivisionMatches(externalId){
+  if (!state.cache || !state.cache.perDivision[externalId]) return [];
+  var entry = state.cache.perDivision[externalId];
+  return mergeDivisionMatches(entry.fixturesRaw, entry.resultsRaw, entry.name);
+}
+function getDivisionTable(externalId){
+  if (!state.cache || !state.cache.perDivision[externalId]) return { rows: [], source: null };
+  var entry = state.cache.perDivision[externalId];
+  if (entry.tableRaw && entry.tableRaw.length) {
+    return { rows: entry.tableRaw.map(mapTableRow), source: "api" };
+  }
+  var matches = getDivisionMatches(externalId);
+  var teamNames = {};
+  matches.forEach(function(m){ teamNames[m.home]=1; teamNames[m.away]=1; });
+  var rows = computeTableFromMatches(matches, Object.keys(teamNames));
+  return { rows: rows, source: rows.length ? "computed" : null };
+}
+function allMatchesAcrossDivisions(){
+  if (!state.cache) return [];
+  var out = [];
+  state.cache.divisions.forEach(function(d){
+    getDivisionMatches(d.externalId).forEach(function(m){
+      m.divisionExternalId = d.externalId;
+      out.push(m);
+    });
+  });
+  return out;
+}
+function findTeamDivision(teamName){
+  if (!state.cache) return null;
+  for (var i=0;i<state.cache.divisions.length;i++){
+    var d = state.cache.divisions[i];
+    var matches = getDivisionMatches(d.externalId);
+    for (var j=0;j<matches.length;j++){
+      if (matches[j].home === teamName || matches[j].away === teamName) return d;
+    }
+  }
+  return null;
+}
+function allTeamNames(){
+  var names = {};
+  allMatchesAcrossDivisions().forEach(function(m){ names[m.home]=1; names[m.away]=1; });
+  return Object.keys(names).sort();
+}
+function fmtDate(iso){
+  if (!iso) return "—";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return d.getUTCDate() + " " + months[d.getUTCMonth()];
+}
+function fmtTime(iso, raw){
+  var m = raw && String(raw).match(/(\d{1,2}):(\d{2})/);
+  if (m) return m[0];
+  if (!iso) return "";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  var hh = d.getUTCHours(); var mm = d.getUTCMinutes();
+  if (hh === 0 && mm === 0) return "";
+  return (hh<10?"0":"")+hh+":"+(mm<10?"0":"")+mm;
+}
+function fmtUpdated(iso){
+  if (!iso) return null;
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  var hh = d.getHours(), mm = d.getMinutes();
+  return (hh<10?"0":"")+hh+":"+(mm<10?"0":"")+mm;
+}
+function esc(s){
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function statusTag(status){
+  if (status === "postponed" || status === "cancelled" || status === "rearranged") {
+    return '<span class="status-tag ' + status + '">' + status + "</span>";
+  }
+  return "";
+}
+
+// ---------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------
+function matchRow(m, opts){
+  opts = opts || {};
+  var homeCls = isFavourite(m.home) ? "name fav" : "name";
+  var awayCls = isFavourite(m.away) ? "name fav" : "name";
+  var scoreHtml = m.hasScore
+    ? '<span class="score">' + m.homeScore + ' – ' + m.awayScore + '</span>'
+    : '<span class="vs">v</span>';
+  var timeStr = fmtTime(m.isoDateTime, m.rawDateTime);
+  var metaBits = [];
+  if (timeStr) metaBits.push(timeStr);
+  if (opts.showDivision && m.competition) metaBits.push(esc(m.competition));
+  if (m.location && opts.showVenue) metaBits.push(esc(m.location));
+  return (
+    '<div class="match">' +
+      '<div class="date">' + fmtDate(m.isoDateTime) + '</div>' +
+      '<div class="teams">' +
+        '<div class="t"><a class="' + homeCls + '" href="#/team/' + encodeURIComponent(m.home) + '">' + esc(m.home) + '</a>' + scoreHtml + '</div>' +
+        '<div class="t"><a class="' + awayCls + '" href="#/team/' + encodeURIComponent(m.away) + '">' + esc(m.away) + '</a></div>' +
+        (metaBits.length || statusTag(m.status) ? '<div class="meta">' + metaBits.join(" · ") + statusTag(m.status) + '</div>' : '') +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function renderBanner(){
+  if (!state.cache) return "";
+  var bits = [];
+  if (state.cache.lastError) {
+    bits.push('<div class="banner err">Unable to retrieve the latest data. Showing the most recently available results.</div>');
+  }
+  return bits.join("");
+}
+
+function renderHome(){
+  var html = "";
+  html += renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+
+  var all = allMatchesAcrossDivisions();
+  var completed = all.filter(function(m){ return m.hasScore; })
+    .sort(function(a,b){ return (b.isoDateTime||"").localeCompare(a.isoDateTime||""); })
+    .slice(0,8);
+  var now = new Date().toISOString();
+  var upcoming = all.filter(function(m){ return !m.hasScore && m.isoDateTime && m.isoDateTime >= now && m.status !== "cancelled"; })
+    .sort(function(a,b){ return (a.isoDateTime||"").localeCompare(b.isoDateTime||""); })
+    .slice(0,8);
+
+  html += '<h2 class="section">Latest Results</h2>';
+  html += completed.length ? '<div class="card">' + completed.map(function(m){ return matchRow(m, {showDivision:true}); }).join("") + '</div>' : '<div class="empty">No completed results yet.</div>';
+
+  html += '<h2 class="section">Upcoming Fixtures</h2>';
+  html += upcoming.length ? '<div class="card">' + upcoming.map(function(m){ return matchRow(m, {showDivision:true}); }).join("") + '</div>' : '<div class="empty">No upcoming fixtures found.</div>';
+
+  html += '<h2 class="section">My Favourites</h2>';
+  if (!state.favourites.length) {
+    html += '<div class="empty">No favourites yet — add a team from its page or search.</div>';
+  } else {
+    html += state.favourites.map(renderFavouriteCard).join("");
+  }
+  return html;
+}
+
+function renderFavouriteCard(name){
+  var div = findTeamDivision(name);
+  var matches = div ? getDivisionMatches(div.externalId) : [];
+  var teamMatches = matches.filter(function(m){ return m.home === name || m.away === name; });
+  var now = new Date().toISOString();
+  var last = teamMatches.filter(function(m){ return m.hasScore; }).sort(function(a,b){ return (b.isoDateTime||"").localeCompare(a.isoDateTime||""); })[0];
+  var next = teamMatches.filter(function(m){ return !m.hasScore && m.isoDateTime && m.isoDateTime >= now; }).sort(function(a,b){ return (a.isoDateTime||"").localeCompare(b.isoDateTime||""); })[0];
+  var table = div ? getDivisionTable(div.externalId) : { rows: [] };
+  var row = table.rows.find(function(r){ return r.teamName === name; });
+
+  var found = !!div || teamMatches.length;
+  var html = '<a href="#/team/' + encodeURIComponent(name) + '" class="card fav-card" style="display:block;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+  html += '<b>★ ' + esc(name) + '</b>';
+  html += '</div>';
+  if (!found) {
+    html += '<div class="row">Not found in the current U12 data yet.</div>';
+  } else {
+    html += '<div class="row">Last Result<br><b>' + (last ? esc(last.home) + ' ' + last.homeScore + ' – ' + last.awayScore + ' ' + esc(last.away) : 'No result yet') + '</b></div>';
+    html += '<div class="row">Next Fixture<br><b>' + (next ? esc(next.home) + ' v ' + esc(next.away) + ' (' + fmtDate(next.isoDateTime) + ')' : 'None scheduled') + '</b></div>';
+    html += '<div class="row">Position<br><b>' + (row ? ordinal(row.position) + ' — ' + row.points + ' pts' : 'Not available') + '</b></div>';
+  }
+  html += '</a>';
+  return html;
+}
+function ordinal(n){
+  if (n === null || n === undefined) return "—";
+  var s = ["th","st","nd","rd"], v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+function renderFixtures(){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  var all = allMatchesAcrossDivisions();
+  var now = new Date().toISOString();
+  var upcoming = all.filter(function(m){ return !m.hasScore && m.isoDateTime && m.isoDateTime >= now; })
+    .sort(function(a,b){ return (a.isoDateTime||"").localeCompare(b.isoDateTime||""); });
+  html += '<h2 class="section">Upcoming Fixtures</h2>';
+  html += upcoming.length ? '<div class="card">' + upcoming.map(function(m){ return matchRow(m, {showDivision:true, showVenue:true}); }).join("") + '</div>' : '<div class="empty">No upcoming fixtures found.</div>';
+  return html;
+}
+
+function renderResults(){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  var all = allMatchesAcrossDivisions();
+  var completed = all.filter(function(m){ return m.hasScore; })
+    .sort(function(a,b){ return (b.isoDateTime||"").localeCompare(a.isoDateTime||""); });
+  html += '<h2 class="section">All Results</h2>';
+  html += completed.length ? '<div class="card">' + completed.map(function(m){ return matchRow(m, {showDivision:true}); }).join("") + '</div>' : '<div class="empty">No completed results yet.</div>';
+  return html;
+}
+
+function renderDivisions(){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  html += '<h2 class="section">U12 Divisions</h2>';
+  if (!state.cache.divisions.length) return html + '<div class="empty">No U12 divisions found.</div>';
+  html += state.cache.divisions.map(function(d){
+    return '<a class="card div-card" href="#/division/' + encodeURIComponent(d.externalId) + '"><span class="name">' + esc(d.name) + '</span><span class="chev">›</span></a>';
+  }).join("");
+  return html;
+}
+
+function tableHtml(rows, source){
+  if (!rows.length) return '<div class="empty">No league table available yet.</div>';
+  var html = '<div class="table-scroll"><table class="league"><thead><tr>' +
+    '<th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    html += '<tr class="' + (isFavourite(r.teamName) ? "fav" : "") + '">' +
+      '<td>' + (r.position!==null?r.position:"—") + '</td>' +
+      '<td class="team"><a href="#/team/' + encodeURIComponent(r.teamName) + '">' + esc(r.teamName) + '</a></td>' +
+      '<td>' + (r.played!==null?r.played:"—") + '</td>' +
+      '<td>' + (r.won!==null?r.won:"—") + '</td>' +
+      '<td>' + (r.drawn!==null?r.drawn:"—") + '</td>' +
+      '<td>' + (r.lost!==null?r.lost:"—") + '</td>' +
+      '<td>' + (r.goalsFor!==null?r.goalsFor:"—") + '</td>' +
+      '<td>' + (r.goalsAgainst!==null?r.goalsAgainst:"—") + '</td>' +
+      '<td>' + (r.goalDifference!==null?r.goalDifference:"—") + '</td>' +
+      '<td>' + (r.points!==null?r.points:"—") + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if (source === "computed") html += '<div class="empty" style="padding-top:8px;">Table calculated from stored results (3pts win / 1pt draw) — the league’s official table hasn’t been retrieved yet.</div>';
+  return html;
+}
+
+var divisionTab = "results";
+function renderDivision(externalId){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  var div = state.cache.divisions.filter(function(d){ return d.externalId === externalId; })[0];
+  if (!div) return html + '<div class="empty">Division not found.</div>';
+
+  var matches = getDivisionMatches(externalId);
+  var now = new Date().toISOString();
+  var completed = matches.filter(function(m){ return m.hasScore; }).sort(function(a,b){ return (b.isoDateTime||"").localeCompare(a.isoDateTime||""); });
+  var upcoming = matches.filter(function(m){ return !m.hasScore && m.isoDateTime && m.isoDateTime >= now; }).sort(function(a,b){ return (a.isoDateTime||"").localeCompare(b.isoDateTime||""); });
+  var table = getDivisionTable(externalId);
+
+  html += '<h2 class="section" style="margin-top:0;">' + esc(div.name) + '</h2>';
+  html += '<div class="tabs">' +
+    '<button data-tab="results" class="' + (divisionTab==="results"?"active":"") + '">Results</button>' +
+    '<button data-tab="fixtures" class="' + (divisionTab==="fixtures"?"active":"") + '">Fixtures</button>' +
+    '<button data-tab="table" class="' + (divisionTab==="table"?"active":"") + '">Table</button>' +
+  '</div>';
+
+  if (divisionTab === "results") {
+    html += completed.length ? '<div class="card">' + completed.map(function(m){ return matchRow(m); }).join("") + '</div>' : '<div class="empty">No completed results yet.</div>';
+  } else if (divisionTab === "fixtures") {
+    html += upcoming.length ? '<div class="card">' + upcoming.map(function(m){ return matchRow(m, {showVenue:true}); }).join("") + '</div>' : '<div class="empty">No upcoming fixtures found.</div>';
+  } else {
+    html += '<div class="card">' + tableHtml(table.rows, table.source) + '</div>';
+  }
+  return html;
+}
+
+function renderTeam(name){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  var div = findTeamDivision(name);
+  var matches = div ? getDivisionMatches(div.externalId) : [];
+  var teamMatches = matches.filter(function(m){ return m.home === name || m.away === name; });
+  if (!div && !teamMatches.length) {
+    return html + '<div class="empty">“' + esc(name) + '” wasn’t found in the current U12 data.</div>';
+  }
+  var now = new Date().toISOString();
+  var completed = teamMatches.filter(function(m){ return m.hasScore; }).sort(function(a,b){ return (b.isoDateTime||"").localeCompare(a.isoDateTime||""); });
+  var upcoming = teamMatches.filter(function(m){ return !m.hasScore && m.isoDateTime && m.isoDateTime >= now; }).sort(function(a,b){ return (a.isoDateTime||"").localeCompare(b.isoDateTime||""); });
+  var table = div ? getDivisionTable(div.externalId) : { rows: [] };
+  var row = table.rows.find(function(r){ return r.teamName === name; });
+  var fav = isFavourite(name);
+
+  html += '<div class="team-hdr">' +
+    '<h1>' + esc(name) + '</h1>' +
+    '<button class="star-btn' + (fav?'':' off') + '" id="teamFavBtn">' + (fav?'★':'☆') + '</button>' +
+  '</div>';
+  if (div) html += '<div style="color:var(--muted);font-size:13px;margin-bottom:6px;">' + esc(div.name) + '</div>';
+
+  if (row) {
+    html += '<div class="stat-grid">' +
+      '<div class="stat"><div class="v">' + ordinal(row.position) + '</div><div class="l">Position</div></div>' +
+      '<div class="stat"><div class="v">' + (row.played!==null?row.played:"—") + '</div><div class="l">Played</div></div>' +
+      '<div class="stat"><div class="v">' + (row.points!==null?row.points:"—") + '</div><div class="l">Points</div></div>' +
+      '<div class="stat"><div class="v">' + (row.goalDifference!==null?row.goalDifference:"—") + '</div><div class="l">GD</div></div>' +
+    '</div>';
+  }
+
+  html += '<h2 class="section">Recent Results</h2>';
+  html += completed.length ? '<div class="card">' + completed.slice(0,5).map(function(m){ return matchRow(m); }).join("") + '</div>' : '<div class="empty">No results yet.</div>';
+
+  html += '<h2 class="section">Upcoming Fixtures</h2>';
+  html += upcoming.length ? '<div class="card">' + upcoming.map(function(m){ return matchRow(m, {showVenue:true}); }).join("") + '</div>' : '<div class="empty">None scheduled.</div>';
+
+  html += '<h2 class="section">Season Results</h2>';
+  html += completed.length ? '<div class="card">' + completed.map(function(m){ return matchRow(m); }).join("") + '</div>' : '<div class="empty">No results yet.</div>';
+
+  return html;
+}
+
+function renderFavourites(){
+  var html = renderBanner();
+  if (!state.cache) return html + emptyOrLoading();
+  html += '<h2 class="section" style="margin-top:0;">⭐ My Favourites</h2>';
+  if (!state.favourites.length) {
+    html += '<div class="empty">No favourites yet. Search for a team or open a team page to add one.</div>';
+  } else {
+    html += state.favourites.map(renderFavouriteCard).join("");
+  }
+  html += '<h2 class="section">Add a Favourite</h2>';
+  html += '<input class="search" id="favSearchInput" placeholder="Search teams to add…" autocomplete="off">';
+  html += '<div id="favSearchResults"></div>';
+  return html;
+}
+
+function renderSearch(query){
+  var html = '<input class="search" id="searchInput" placeholder="Search teams…" value="' + esc(query||"") + '" autocomplete="off">';
+  html += '<div id="searchResults">';
+  html += searchResultsHtml(query || "");
+  html += '</div>';
+  return html;
+}
+function searchResultsHtml(query){
+  if (!state.cache) return emptyOrLoading();
+  var q = query.trim().toLowerCase();
+  if (q.length < 2) return '<div class="empty">Type at least 2 letters…</div>';
+  var matches = allTeamNames().filter(function(n){ return n.toLowerCase().indexOf(q) !== -1; });
+  if (!matches.length) return '<div class="empty">No teams found.</div>';
+  return '<div class="card">' + matches.map(function(name){
+    var fav = isFavourite(name);
+    return '<div class="match" style="align-items:center;">' +
+      '<a href="#/team/' + encodeURIComponent(name) + '" style="flex:1;font-size:14px;">' + esc(name) + '</a>' +
+      '<button class="star-btn' + (fav?'':' off') + '" data-toggle-fav="' + esc(name) + '">' + (fav?'★':'☆') + '</button>' +
+    '</div>';
+  }).join("") + '</div>';
+}
+
+function emptyOrLoading(){
+  if (state.fetchBlocked) {
+    return '<div class="center-msg"><div class="big">⚠️</div>' +
+      "Couldn't reach the Full-Time results service.<br><br>" +
+      "This can happen if the service is temporarily down, or if it doesn't allow this page to fetch its data directly from a browser (a CORS restriction).<br><br>" +
+      'If this keeps happening, try again later or from a different network.<br>' +
+      '<button class="btn" style="margin-top:14px;" onclick="location.reload()">Try again</button></div>';
+  }
+  return '<div class="center-msg"><span class="spinner"></span><br><br>Loading U12 results…</div>';
+}
+
+function routeTitle(route){
+  var titles = { "/":"Home", "/fixtures":"Fixtures", "/results":"Results", "/divisions":"Divisions", "/favourites":"Favourites" };
+  return titles[route.path] || "";
+}
+
+function render(){
+  var app = document.getElementById("app");
+  var route = state.route;
+  var html = "";
+  if (route.path === "/") html = renderHome();
+  else if (route.path === "/fixtures") html = renderFixtures();
+  else if (route.path === "/results") html = renderResults();
+  else if (route.path === "/divisions") html = renderDivisions();
+  else if (route.path === "/division") html = renderDivision(route.param);
+  else if (route.path === "/team") html = renderTeam(decodeURIComponent(route.param));
+  else if (route.path === "/favourites") html = renderFavourites();
+  else if (route.path === "/search") html = renderSearch(route.param || "");
+  else html = renderHome();
+
+  app.innerHTML = html;
+  updateStatusBadge();
+  updateNav();
+  bindDynamicHandlers();
+  window.scrollTo(0,0);
+}
+
+function updateStatusBadge(){
+  var badge = document.getElementById("statusBadge");
+  var seasonEl = document.getElementById("seasonLabel");
+  if (state.cache && state.cache.seasonLabel) seasonEl.textContent = "· " + state.cache.seasonLabel + " season";
+  if (state.loading) {
+    badge.className = "badge stale"; badge.textContent = "Updating…";
+    return;
+  }
+  if (!state.cache) {
+    badge.className = "badge error"; badge.textContent = "No data";
+    return;
+  }
+  var upd = fmtUpdated(state.cache.updatedAt);
+  if (state.cache.lastError) {
+    badge.className = "badge error";
+    badge.textContent = upd ? ("Last updated " + upd) : "Unavailable";
+  } else {
+    badge.className = "badge live";
+    badge.textContent = upd ? ("Updated " + upd) : "Live";
+  }
+}
+
+function updateNav(){
+  var links = document.querySelectorAll("nav.bottom a");
+  for (var i=0;i<links.length;i++){
+    var r = links[i].getAttribute("data-route");
+    var active = (r === state.route.path) || (r === "/" && (state.route.path === "/division" || state.route.path === "/team"));
+    links[i].className = active ? "active" : "";
+  }
+}
+
+function bindDynamicHandlers(){
+  var teamFavBtn = document.getElementById("teamFavBtn");
+  if (teamFavBtn && state.route.path === "/team") {
+    teamFavBtn.onclick = function(){ toggleFavourite(decodeURIComponent(state.route.param)); };
+  }
+  var tabs = document.querySelectorAll(".tabs button[data-tab]");
+  for (var i=0;i<tabs.length;i++){
+    tabs[i].onclick = function(){ divisionTab = this.getAttribute("data-tab"); render(); };
+  }
+  var favSearchInput = document.getElementById("favSearchInput");
+  if (favSearchInput) {
+    favSearchInput.oninput = function(){
+      document.getElementById("favSearchResults").innerHTML = searchResultsHtml(this.value);
+      bindStarButtons();
+    };
+  }
+  var searchInput = document.getElementById("searchInput");
+  if (searchInput) {
+    searchInput.oninput = function(){
+      document.getElementById("searchResults").innerHTML = searchResultsHtml(this.value);
+      bindStarButtons();
+      history.replaceState(null, "", "#/search/" + encodeURIComponent(this.value));
+    };
+    searchInput.focus();
+  }
+  bindStarButtons();
+}
+function bindStarButtons(){
+  var stars = document.querySelectorAll("[data-toggle-fav]");
+  for (var i=0;i<stars.length;i++){
+    stars[i].onclick = function(){ toggleFavourite(this.getAttribute("data-toggle-fav")); };
+  }
+}
+
+// ---------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------
+function parseHash(){
+  var h = location.hash.replace(/^#/, "") || "/";
+  var parts = h.split("/").filter(Boolean);
+  if (parts.length === 0) return { path: "/" };
+  if (parts[0] === "division" && parts[1]) return { path: "/division", param: parts[1] };
+  if (parts[0] === "team" && parts[1]) return { path: "/team", param: parts[1] };
+  if (parts[0] === "search") return { path: "/search", param: decodeURIComponent(parts[1] || "") };
+  if (["fixtures","results","divisions","favourites"].indexOf(parts[0]) !== -1) return { path: "/" + parts[0] };
+  return { path: "/" };
+}
+window.addEventListener("hashchange", function(){
+  state.route = parseHash();
+  render();
+});
+
+// A basic search entry point via the nav isn't in the 5-item bottom nav
+// (kept to the brief's core 5), but is reachable via the home search box.
+function insertSearchEntry(){
+  var sub = document.querySelector("header.top .sub");
+  var a = document.createElement("a");
+  a.href = "#/search";
+  a.style.marginLeft = "auto";
+  a.style.fontSize = "16px";
+  a.textContent = "🔍";
+  sub.parentNode.insertBefore(a, null);
+}
+
+// ---------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", function(){
+  addSearchLink();
+  render();
+  refreshData();
+  setInterval(function(){
+    if (document.visibilityState === "visible") refreshData();
+  }, CONFIG.REFRESH_MS);
+});
+
+function addSearchLink(){
+  var header = document.querySelector("header.top");
+  var link = document.createElement("a");
+  link.href = "#/search";
+  link.textContent = "🔍 Search";
+  link.style.cssText = "position:absolute;top:calc(14px + env(safe-area-inset-top));right:16px;font-size:13px;color:var(--muted);";
+  header.style.position = "sticky";
+  var wrap = document.createElement("div");
+  wrap.style.position = "relative";
+  header.parentNode.insertBefore(wrap, header);
+  wrap.appendChild(header);
+  wrap.appendChild(link);
+}
+
+})();
+</script>
+</body>
+</html>
