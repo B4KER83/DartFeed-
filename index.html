@@ -135,7 +135,7 @@ var CONFIG = {
   CACHE_KEY: "foxes_u12_cache_v1",
   FAV_KEY: "foxes_u12_favourites_v1",
   REFRESH_MS: 20 * 60 * 1000, // 20 min background refresh while the tab is open
-  FETCH_TIMEOUT_MS: 9000,
+  FETCH_TIMEOUT_MS: 45000, // upstream renders pages in headless Chromium; cold requests can take 30s+
   RETRIES: 2
 };
 
@@ -185,7 +185,7 @@ function parseScoreString(s){
   return { home: parseInt(m[1],10), away: parseInt(m[2],10) };
 }
 function inferStatus(raw){
-  var statusField = firstDefined(raw, ["status","matchStatus","fixtureStatus","result"]);
+  var statusField = firstDefined(raw, ["status","matchStatus","fixtureStatus","result","score"]);
   var text = String(statusField || "").toLowerCase();
   if (text.indexOf("postpon") !== -1) return "postponed";
   if (text.indexOf("cancel") !== -1) return "cancelled";
@@ -512,8 +512,10 @@ function getDivisionMatches(externalId){
 function getDivisionTable(externalId){
   if (!state.cache || !state.cache.perDivision[externalId]) return { rows: [], source: null };
   var entry = state.cache.perDivision[externalId];
-  if (entry.tableRaw && entry.tableRaw.length) {
-    return { rows: entry.tableRaw.map(mapTableRow), source: "api" };
+  // API returns { divisionName, table: [...] }; table is currently always empty upstream.
+  var apiRows = entry.tableRaw && (Array.isArray(entry.tableRaw) ? entry.tableRaw : entry.tableRaw.table);
+  if (apiRows && apiRows.length) {
+    return { rows: apiRows.map(mapTableRow), source: "api" };
   }
   var matches = getDivisionMatches(externalId);
   var teamNames = {};
